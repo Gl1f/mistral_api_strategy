@@ -2,7 +2,7 @@ from config import TOKEN
 import requests
 import base64
 from abc import abstractmethod, ABC
-from typing import List, Dict, Union, Optional, Any, Tuple
+from typing import List, Dict, Optional, Any
 
 
 class RequestStrategy(ABC):

@@ -1,4 +1,3 @@
-from typing import List, Dict, Optional, Any
 from config import TOKEN
 import requests
 import base64
@@ -14,6 +13,14 @@ class RequestStrategy(ABC):
 
 
 class TextRequestStrategy(RequestStrategy):
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.url = 'https://api.mistral.ai/v1/chat/completions'
+        self.headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+    
     def execute(
         self, text: str, model: str, history: list = None, image_path: str = None
     ) -> dict:
@@ -21,20 +28,27 @@ class TextRequestStrategy(RequestStrategy):
         self.model = model
         self.history = history
         self.image_path = image_path
-        self.api_key = ChatFacade.api_key
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-        self.url = 'https://api.mistral.ai/v1/chat/completions'
+        if history is None:
+            self.history = [{"role": "user", "content": self.text}]
+        else:
+            self.history.append({"role": "user", "content": self.text})
         self.data = {
             "model": f"{self.model}",
             "messages": self.history,
         }
         self.response = requests.post(self.url, headers=self.headers, json=self.data)
+        print(self.history)
 
 
 class ImageRequestStrategy(RequestStrategy):
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.url = 'https://api.mistral.ai/v1/chat/completions'
+        self.headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+    
     def execute(
         self, text: str, model: str, history: list = None, image_path: str = None
     ) -> dict:
@@ -42,20 +56,18 @@ class ImageRequestStrategy(RequestStrategy):
         self.model = model
         self.history = history
         self.image_path = image_path
-        self.url = ChatFacade.url
-        self.headers = ChatFacade.headers
-
-
+        if self.image_path:
+            try:
+                with open(self.image_path, "rb") as image_file:
+                    self.image_data = base64.b64encode(image_file.read()).decode("utf-8")
+            except FileNotFoundError:
+                raise Exception(f"Image file not found: {self.image_path}")
+        
 class ChatFacade:
     def __init__(self, api_key: str) -> None:
         self.api_key = api_key
-        self.url: str = "https://api.mistral.ai/v1/chat/completions"
-        self.headers: Dict[str, str] = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-        self.text_request = TextRequestStrategy()
-        self.image_request = ImageRequestStrategy()
+        self.text_request = TextRequestStrategy(api_key)
+        self.image_request = ImageRequestStrategy(api_key)
         self.models_text = [
             "mistral-small-latest",
             "open-mistral-nemo",
@@ -118,7 +130,7 @@ class ChatFacade:
             raise ValueError("Invalid strategy type")
 
 if __name__ == "__main__":
-    api_key = "your_api_key_here"
+    api_key = TOKEN
     chat = ChatFacade(api_key)
 
     # Смена стратегии
